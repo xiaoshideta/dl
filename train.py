@@ -140,6 +140,7 @@ class Record(object):
 
 with Engine(custom_parser=parser) as engine:
     args = parser.parse_args()
+    print(args)
 
     # 固定训练种子设置
     cudnn.benchmark = True
