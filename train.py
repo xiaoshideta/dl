@@ -307,9 +307,9 @@ with Engine(custom_parser=parser) as engine:
             # print(logist.shape) # [2, 40, 480, 640]
             logits2, loss2  = model2(imgs, None, gts)
 
-            distillation_alpha = 0.01
-            print("distillation_alpha:", distillation_alpha)
-            loss_rdkl = kl_calculator.compute_kl_divergence(logits, logits2.detach()) * distillation_alpha
+            print("distillation_alpha:", args.distillation_alpha)
+            # distillation_alpha = 0.01
+            loss_rdkl = kl_calculator.compute_kl_divergence(logits.detach(), logits2.detach()) * args.distillation_alpha
             # loss_drkl = kl_calculator.compute_kl_divergence(logits2, logits1.detach()) * args.distillation_alpha
             # print(logist2.shape) # [2, 40, 480, 640]
             # print(gts.shape) # [2, 480, 640]
