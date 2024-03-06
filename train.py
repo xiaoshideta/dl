@@ -29,6 +29,7 @@ from tensorboardX import SummaryWriter
 from torch.nn import functional as F
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--distillation_alpha', type=float, default=0.1, help='Description of new argument')
 logger = get_logger()
 
 os.environ['MASTER_PORT'] = '169710'
