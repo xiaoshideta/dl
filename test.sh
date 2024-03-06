@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES="0" python eval.py -d="0" --save_path="./eval_result/"

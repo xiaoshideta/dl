@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=3,2 python -m torch.distributed.launch --nproc_per_node=2 train.py --port=29502
