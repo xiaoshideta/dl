@@ -140,7 +140,7 @@ class Record(object):
 
 with Engine(custom_parser=parser) as engine:
     args = parser.parse_args()
-    print(args)
+    
 
     # 固定训练种子设置
     cudnn.benchmark = True
@@ -196,7 +196,7 @@ with Engine(custom_parser=parser) as engine:
         engine.link_tb(tb_dir, generate_tb_dir)
         path3 = tb_dir + '/exp.log'
         sys.stdout = Record(path3, sys.stdout)
-
+    print(args)
     # 损失函数
     criterion = nn.CrossEntropyLoss(reduction='mean', ignore_index=config.background)
     criterion2 = nn.CrossEntropyLoss(reduction='mean', ignore_index=config.background)
