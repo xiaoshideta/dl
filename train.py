@@ -30,9 +30,12 @@ from torch.nn import functional as F
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--distillation_alpha', type=float, default=0.1, help='Description of new argument')
+parser.add_argument('--distillation_single', type=int, default=1, help='Description of new argument')
+parser.add_argument('--distillation_single2', type=int, default=1, help='Description of new argument')
 logger = get_logger()
 
 os.environ['MASTER_PORT'] = '169710'
+
 
 # 验证类
 
@@ -59,6 +62,7 @@ class KLDivergenceCalculator():
         # 返回KL散度的平均值
         return kl_div.mean()
 
+
 class SegEvaluator(Evaluator):
     def func_per_iteration(self, data, device):
         # 数据获取
@@ -84,9 +88,10 @@ class SegEvaluator(Evaluator):
             count += 1
         # 计算iou
         iou, mean_IoU, _, freq_IoU, mean_pixel_acc, pixel_acc = compute_score(hist, correct, labeled)
-        result_line, mIoU= print_iou(iou, freq_IoU, mean_pixel_acc, pixel_acc,
-                                val_dataset.class_names, show_no_back=False)
+        result_line, mIoU = print_iou(iou, freq_IoU, mean_pixel_acc, pixel_acc,
+                                      val_dataset.class_names, show_no_back=False)
         return result_line, mIoU
+
 
 # 验证类
 class SegEvaluator2(Evaluator):
@@ -114,22 +119,24 @@ class SegEvaluator2(Evaluator):
             count += 1
         # 计算iou
         iou, mean_IoU, _, freq_IoU, mean_pixel_acc, pixel_acc = compute_score(hist, correct, labeled)
-        result_line, mIoU= print_iou(iou, freq_IoU, mean_pixel_acc, pixel_acc,
-                                val_dataset.class_names, show_no_back=False)
+        result_line, mIoU = print_iou(iou, freq_IoU, mean_pixel_acc, pixel_acc,
+                                      val_dataset.class_names, show_no_back=False)
         return result_line, mIoU
+
 
 # 记录日志
 class Record(object):
     def __init__(self, filename='default.log', stream=sys.stdout):
         self.terminal = stream
         self.log = open(filename, 'a')
- 
+
     def write(self, message):
         self.terminal.write(message)
         self.log.write(message)
- 
+
     def flush(self):
-	    pass
+        pass
+
 
 with Engine(custom_parser=parser) as engine:
     args = parser.parse_args()
@@ -163,9 +170,9 @@ with Engine(custom_parser=parser) as engine:
     }
     val_pre = ValPre()
     val_dataset = RGBXDataset(data_setting, 'val', val_pre)
-    
+
     # test_loader, test_sampler = get_test_loader(engine, RGBXDataset,config)
-    
+
     # 创建记录的文件夹和log日志
     if (engine.distributed and (engine.local_rank == 0)) or (not engine.distributed):
         # tb_dir = config.tb_dir + '/{}'.format(time.strftime("%b%d_%d-%H-%M", time.localtime()))
@@ -174,7 +181,7 @@ with Engine(custom_parser=parser) as engine:
         # config.log_dir = config.log_dir + '/{}'.format(exp_time)
         # tb_dir = config.log_dir
         # config.checkpoint_dir = tb_dir + '/checkpoint/'
-        
+
         # generate_tb_dir = tb_dir + '/tb'
         # tb = SummaryWriter(log_dir=tb_dir)
         # engine.link_tb(tb_dir, generate_tb_dir)
@@ -201,27 +208,27 @@ with Engine(custom_parser=parser) as engine:
     else:
         BatchNorm2d = nn.BatchNorm2d
         BatchNorm2d2 = nn.BatchNorm2d
-    
+
     # 训练的model初始化
     # model=segmodel(cfg=config, criterion=criterion, norm_layer=BatchNorm2d)
 
     # CMX分支
-    model=segmodel(cfg=config, criterion=criterion, norm_layer=BatchNorm2d, load=True)
+    model = segmodel(cfg=config, criterion=criterion, norm_layer=BatchNorm2d, load=True)
 
     # 单独的Segformer分支
     config.backbone = 'single_mit_b4'
     print(config.backbone)
-    model2=segmodel2(cfg=config, criterion=criterion2, norm_layer=BatchNorm2d2, load=True)
+    model2 = segmodel2(cfg=config, criterion=criterion2, norm_layer=BatchNorm2d2, load=True)
 
     # 进行验证测试的model初始化
     # network = segmodel(cfg=config, criterion=True, norm_layer=nn.BatchNorm2d, load=None)
-    
+
     # 学习率参数
     base_lr = config.lr
     base_lr2 = config.lr
     # if engine.distributed:
     #     base_lr = config.lr
-    
+
     # 用于将模型的参数按照特定的规则进行分组，然后为每个参数组设置不同的学习率
     params_list = []
     params_list2 = []
@@ -235,25 +242,27 @@ with Engine(custom_parser=parser) as engine:
         optimizer2 = torch.optim.AdamW(params_list2, lr=base_lr2, betas=(0.9, 0.999), weight_decay=config.weight_decay)
     elif config.optimizer == 'SGDM':
         optimizer = torch.optim.SGD(params_list, lr=base_lr, momentum=config.momentum, weight_decay=config.weight_decay)
-        optimizer2 = torch.optim.SGD(params_list2, lr=base_lr2, momentum=config.momentum, weight_decay=config.weight_decay)
+        optimizer2 = torch.optim.SGD(params_list2, lr=base_lr2, momentum=config.momentum,
+                                     weight_decay=config.weight_decay)
     else:
         raise NotImplementedError
 
     # 学习率warm up策略
     total_iteration = config.nepochs * config.niters_per_epoch
     lr_policy = WarmUpPolyLR(base_lr, config.lr_power, total_iteration, config.niters_per_epoch * config.warm_up_epoch)
-    lr_policy2 = WarmUpPolyLR(base_lr2, config.lr_power, total_iteration, config.niters_per_epoch * config.warm_up_epoch)
+    lr_policy2 = WarmUpPolyLR(base_lr2, config.lr_power, total_iteration,
+                              config.niters_per_epoch * config.warm_up_epoch)
 
     # 数据分布式训练
     if engine.distributed:
         logger.info('.............distributed training.............')
         if torch.cuda.is_available():
             model.cuda()
-            model = DistributedDataParallel(model, device_ids=[engine.local_rank], 
+            model = DistributedDataParallel(model, device_ids=[engine.local_rank],
                                             output_device=engine.local_rank, find_unused_parameters=False)
             model2.cuda()
-            model2 = DistributedDataParallel(model2, device_ids=[engine.local_rank], 
-                                            output_device=engine.local_rank, find_unused_parameters=False)
+            model2 = DistributedDataParallel(model2, device_ids=[engine.local_rank],
+                                             output_device=engine.local_rank, find_unused_parameters=False)
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(device)
@@ -267,14 +276,19 @@ with Engine(custom_parser=parser) as engine:
     if engine.continue_state_object:
         engine.restore_checkpoint()
 
-    
     # 训练
     optimizer.zero_grad()
     optimizer2.zero_grad()
-    
+
     logger.info('begin trainning:')
     Best_IoU = 0.0
-    for epoch in range(engine.state.epoch, config.nepochs+1):
+    if args.distillation_single == 1:
+        print("use loss_rdkl")
+    if args.distillation_single2 == 1:
+        print("use loss_drkl")
+    print("distillation_alpha:", args.distillation_alpha)
+
+    for epoch in range(engine.state.epoch, config.nepochs + 1):
         model.train()
         model2.train()
 
@@ -305,15 +319,24 @@ with Engine(custom_parser=parser) as engine:
             # 输入模型，获得损失
             logits, loss = model(imgs, modal_xs, gts)
             # print(logist.shape) # [2, 40, 480, 640]
-            logits2, loss2  = model2(imgs, None, gts)
+            logits2, loss2 = model2(imgs, None, gts)
 
-            print("distillation_alpha:", args.distillation_alpha)
+
             # distillation_alpha = 0.01
             loss_rdkl = kl_calculator.compute_kl_divergence(logits, logits2.detach()) * args.distillation_alpha
             loss_drkl = kl_calculator.compute_kl_divergence(logits2, logits.detach()) * args.distillation_alpha
             # print(logist2.shape) # [2, 40, 480, 640]
             # print(gts.shape) # [2, 480, 640]
-            loss = loss + loss_rdkl
+            if args.distillation_single == 1:
+                loss = loss + loss_rdkl
+            else:
+                loss = loss
+
+            if args.distillation_single2 == 1:
+                # print("use loss_drkl")
+                loss2 = loss2 + loss_drkl
+            else:
+                loss2 = loss2
             # loss2 = loss2 + loss_drkl
 
             # reduce the whole loss over multi-gpu
@@ -321,7 +344,7 @@ with Engine(custom_parser=parser) as engine:
                 reduce_loss = all_reduce_tensor(loss, world_size=engine.world_size)
                 reduce_loss2 = all_reduce_tensor(loss2, world_size=engine.world_size)
                 reduce_kl_loss = all_reduce_tensor(loss_rdkl, world_size=engine.world_size)
-            
+
             optimizer.zero_grad()
             optimizer2.zero_grad()
             loss.backward(retain_graph=True)
@@ -329,7 +352,7 @@ with Engine(custom_parser=parser) as engine:
             optimizer.step()
             optimizer2.step()
 
-            current_idx = (epoch- 1) * config.niters_per_epoch + idx 
+            current_idx = (epoch - 1) * config.niters_per_epoch + idx
             lr = lr_policy.get_lr(current_idx)
             lr2 = lr_policy2.get_lr(current_idx)
 
@@ -343,29 +366,30 @@ with Engine(custom_parser=parser) as engine:
                 sum_loss2 += reduce_loss2.item()
                 sum_kl_loss += reduce_kl_loss.item()
                 print_str = 'Epoch {}/{}'.format(epoch, config.nepochs) \
-                        + ' Iter {}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                        + ' lr=%.4e' % lr \
-                        + ' loss=%.4f total_loss=%.4f' % (reduce_loss.item(), (sum_loss / (idx + 1))) \
-                        + ' loss2=%.4f total_loss2=%.4f' % (reduce_loss2.item(), (sum_loss2 / (idx + 1))) \
-                        + ' kl_loss=%.4f' % (reduce_kl_loss.item())
+                            + ' Iter {}/{}:'.format(idx + 1, config.niters_per_epoch) \
+                            + ' lr=%.4e' % lr \
+                            + ' loss=%.4f total_loss=%.4f' % (reduce_loss.item(), (sum_loss / (idx + 1))) \
+                            + ' loss2=%.4f total_loss2=%.4f' % (reduce_loss2.item(), (sum_loss2 / (idx + 1))) \
+                            + ' kl_loss=%.4f' % (reduce_kl_loss.item())
             else:
                 sum_loss += loss
                 sum_loss2 += reduce_loss2
                 sum_kl_loss += reduce_kl_loss
                 print_str = 'Epoch {}/{}'.format(epoch, config.nepochs) \
-                        + ' Iter {}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                        + ' lr=%.4e' % lr \
-                        + ' loss=%.4f total_loss=%.4f' % (loss, (sum_loss / (idx + 1))) \
-                        + ' loss2=%.4f total_loss2=%.4f' % (reduce_loss2.item(), (sum_loss2 / (idx + 1)))
-                        # + ' kl_loss=%.4f total_kl_loss=%.4f' % (reduce_kl_loss.item(), (sum_kl_loss / (idx + 1)))
+                            + ' Iter {}/{}:'.format(idx + 1, config.niters_per_epoch) \
+                            + ' lr=%.4e' % lr \
+                            + ' loss=%.4f total_loss=%.4f' % (loss, (sum_loss / (idx + 1))) \
+                            + ' loss2=%.4f total_loss2=%.4f' % (reduce_loss2.item(), (sum_loss2 / (idx + 1)))
+                # + ' kl_loss=%.4f total_kl_loss=%.4f' % (reduce_kl_loss.item(), (sum_kl_loss / (idx + 1)))
 
             del loss
             pbar.set_description(print_str, refresh=False)
-        
+
         if (engine.distributed and (engine.local_rank == 0)) or (not engine.distributed):
             tb.add_scalar('train_loss', sum_loss / len(pbar), epoch)
         network = None
-        if (epoch >= config.checkpoint_start_epoch) and (epoch % config.checkpoint_step == 0) or (epoch == config.nepochs):
+        if (epoch >= config.checkpoint_start_epoch) and (epoch % config.checkpoint_step == 0) or (
+                epoch == config.nepochs):
             if engine.distributed and (engine.local_rank == 0):
                 model.eval()
                 model2.eval()
@@ -373,27 +397,27 @@ with Engine(custom_parser=parser) as engine:
                 device = str(0)
                 all_dev = parse_devices(device)
                 # 保存当前训练轮数的模型
-                
+
                 with torch.no_grad():
-                # 设置验证参数
+                    # 设置验证参数
                     segmentor = SegEvaluator(val_dataset, config.num_classes, config.norm_mean,
-                                            config.norm_std, network,
-                                            config.eval_scale_array, config.eval_flip,
-                                            all_dev, verbose = False, save_path = None,
-                                            show_image=False)
-                # 加载模型参数，打印验证结果
-                    config.val_log_file  = tb_dir + '/val_' +  '.log'
-                    config.link_val_log_file = tb_dir + '/val_last.log'    
-                    config.checkpoint_dir = tb_dir + '/checkpoint'    
+                                             config.norm_std, network,
+                                             config.eval_scale_array, config.eval_flip,
+                                             all_dev, verbose=False, save_path=None,
+                                             show_image=False)
+                    # 加载模型参数，打印验证结果
+                    config.val_log_file = tb_dir + '/val_' + '.log'
+                    config.link_val_log_file = tb_dir + '/val_last.log'
+                    config.checkpoint_dir = tb_dir + '/checkpoint'
                     mIoU = segmentor.run(config.checkpoint_dir, str(epoch), config.val_log_file,
-                        config.link_val_log_file, model)
+                                         config.link_val_log_file, model)
                     print('epoch: %d, mIoU: %.3f%%, Best_IoU: %.3f%%' % (epoch, mIoU, Best_IoU))
                     if (Best_IoU < mIoU):
                         Best_IoU = mIoU
                         engine.save_and_link_checkpoint(config.checkpoint_dir,
-                                                    config.log_dir,
-                                                    config.log_dir_link,
-                                                    Best_IoU)
+                                                        config.log_dir,
+                                                        config.log_dir_link,
+                                                        Best_IoU)
                         print("save successful!")
 
             elif not engine.distributed:
@@ -406,23 +430,23 @@ with Engine(custom_parser=parser) as engine:
                 #                                 config.log_dir,
                 #                                 config.log_dir_link)
                 with torch.no_grad():
-                # 设置验证参数
+                    # 设置验证参数
                     segmentor = SegEvaluator(val_dataset, config.num_classes, config.norm_mean,
-                                            config.norm_std, network,
-                                            config.eval_scale_array, config.eval_flip,
-                                            all_dev, verbose = False, save_path = None,
-                                            show_image=False)
-                # 加载模型参数，打印验证结果
-                    config.val_log_file  = tb_dir + '/val_' +  '.log'
+                                             config.norm_std, network,
+                                             config.eval_scale_array, config.eval_flip,
+                                             all_dev, verbose=False, save_path=None,
+                                             show_image=False)
+                    # 加载模型参数，打印验证结果
+                    config.val_log_file = tb_dir + '/val_' + '.log'
                     config.link_val_log_file = tb_dir + '/val_last.log'
-                    config.checkpoint_dir = tb_dir + '/checkpoint'  
+                    config.checkpoint_dir = tb_dir + '/checkpoint'
                     mIoU = segmentor.run(config.checkpoint_dir, str(epoch), config.val_log_file,
-                        config.link_val_log_file, model)
+                                         config.link_val_log_file, model)
                     print('epoch: %d, mIoU: %.3f%%, Best_IoU: %.3f%%' % (epoch, mIoU, Best_IoU))
                     if (Best_IoU < mIoU):
                         Best_IoU = mIoU
                         engine.save_and_link_checkpoint(config.checkpoint_dir,
-                                                    config.log_dir,
-                                                    config.log_dir_link,
-                                                    Best_IoU)
+                                                        config.log_dir,
+                                                        config.log_dir_link,
+                                                        Best_IoU)
                         print("save successful!")
