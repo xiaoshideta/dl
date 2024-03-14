@@ -410,12 +410,12 @@ class Evaluator(object):
             self.val_func.eval()
             self.val_func.to(input_data.get_device())
             with torch.no_grad():
-                score = self.val_func(input_data, input_modal_x)
+                X, score = self.val_func(input_data, input_modal_x)
                 score = score[0]
                 if self.is_flip:
                     input_data = input_data.flip(-1)
                     input_modal_x = input_modal_x.flip(-1)
-                    score_flip = self.val_func(input_data, input_modal_x)
+                    X, score_flip = self.val_func(input_data, input_modal_x)
                     score_flip = score_flip[0]
                     score += score_flip.flip(-1)
                 score = torch.exp(score)
