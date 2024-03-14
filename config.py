@@ -49,8 +49,8 @@ C.norm_mean = np.array([0.485, 0.456, 0.406])
 C.norm_std = np.array([0.229, 0.224, 0.225])
 
 """ Settings for network, this would be different for each kind of model"""
-C.backbone = 'mit_b4' # Remember change the path below.
-C.pretrained_model = C.root_dir + '/pretrained/segformer/mit_b4.pth'
+C.backbone = 'mit_b2' # Remember change the path below.
+C.pretrained_model = C.root_dir + '/pretrained/segformer/mit_b2.pth'
 C.decoder = 'MLPDecoder'
 C.decoder_embed_dim = 512
 C.optimizer = 'AdamW'
