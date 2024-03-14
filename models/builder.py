@@ -112,20 +112,20 @@ class EncoderDecoder(nn.Module):
         if self.aux_head:
             aux_fm = self.aux_head(x[self.aux_index])
             aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
-            return out, aux_fm
-        return out
+            return x, out, aux_fm
+        return x, out
 
     def forward(self, rgb, modal_x, label=None):
         if self.aux_head:
-            out, aux_fm = self.encode_decode(rgb, modal_x)
+            x, out, aux_fm = self.encode_decode(rgb, modal_x)
         else:
-            out = self.encode_decode(rgb, modal_x)
+            x, out = self.encode_decode(rgb, modal_x)
         if label is not None:
             loss = self.criterion(out, label.long())
             if self.aux_head:
                 loss += self.aux_rate * self.criterion(aux_fm, label.long())
-            return out, loss
-        return out
+            return x, out, loss
+        return x, out
 
 
 
@@ -255,7 +255,7 @@ class EncoderDecoder2(nn.Module):
             if self.aux_head:
                 aux_fm = self.aux_head(x[self.aux_index])
                 aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
-                return out, aux_fm
+                return x, out, aux_fm
         else:
             x = self.backbone(rgb)
             out = self.decode_head.forward(x)
@@ -263,8 +263,8 @@ class EncoderDecoder2(nn.Module):
             if self.aux_head:
                 aux_fm = self.aux_head(x[self.aux_index])
                 aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
-                return out, aux_fm
-        return out
+                return x, out, aux_fm
+        return x, out
 
     # def encode_decode2(self, rgb):
     #     """Encode images with backbone and decode into a semantic segmentation
@@ -282,13 +282,13 @@ class EncoderDecoder2(nn.Module):
     def forward(self, rgb, modal_x, label=None):
         
         if self.aux_head:
-            out, aux_fm = self.encode_decode(rgb, modal_x)
+            x, out, aux_fm = self.encode_decode(rgb, modal_x)
         else:
-            out = self.encode_decode(rgb, modal_x)
+            x, out = self.encode_decode(rgb, modal_x)
 
         if label is not None:
             loss = self.criterion(out, label.long())
             if self.aux_head:
                 loss += self.aux_rate * self.criterion(aux_fm, label.long())
-            return out, loss
-        return out
+            return x, out, loss
+        return x, out
