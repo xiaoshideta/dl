@@ -107,19 +107,19 @@ class EncoderDecoder(nn.Module):
         map of the same size as input."""
         orisize = rgb.shape
         x = self.backbone(rgb, modal_x)
-        out = self.decode_head.forward(x)
+        out, outs2 = self.decode_head.forward(x)
         out = F.interpolate(out, size=orisize[2:], mode='bilinear', align_corners=False)
         if self.aux_head:
             aux_fm = self.aux_head(x[self.aux_index])
             aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
-            return x, out, aux_fm
-        return x, out
+            return outs2, out, aux_fm
+        return outs2, out
 
     def forward(self, rgb, modal_x, label=None):
         if self.aux_head:
             x, out, aux_fm = self.encode_decode(rgb, modal_x)
         else:
-            x, out = self.encode_decode(rgb, modal_x)
+            x, out= self.encode_decode(rgb, modal_x)
         if label is not None:
             loss = self.criterion(out, label.long())
             if self.aux_head:
@@ -250,21 +250,21 @@ class EncoderDecoder2(nn.Module):
         orisize = rgb.shape
         if modal_x is not None:
             x = self.backbone(rgb, modal_x)
-            out = self.decode_head.forward(x)
+            out, outs2 = self.decode_head.forward(x)
             out = F.interpolate(out, size=orisize[2:], mode='bilinear', align_corners=False)
             if self.aux_head:
                 aux_fm = self.aux_head(x[self.aux_index])
                 aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
-                return x, out, aux_fm
+                return outs2, out, aux_fm
         else:
             x = self.backbone(rgb)
-            out = self.decode_head.forward(x)
+            out, outs2 = self.decode_head.forward(x)
             out = F.interpolate(out, size=orisize[2:], mode='bilinear', align_corners=False)
             if self.aux_head:
                 aux_fm = self.aux_head(x[self.aux_index])
                 aux_fm = F.interpolate(aux_fm, size=orisize[2:], mode='bilinear', align_corners=False)
-                return x, out, aux_fm
-        return x, out
+                return outs2, out, aux_fm
+        return outs2, out
 
     # def encode_decode2(self, rgb):
     #     """Encode images with backbone and decode into a semantic segmentation
