@@ -11,7 +11,7 @@ import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 from torch.nn.parallel import DistributedDataParallel
 
-from config import config
+from config2 import config
 # from config2 import config2
 from dataloader.dataloader import get_train_loader, ValPre
 from models.builder import EncoderDecoder as segmodel
@@ -213,7 +213,7 @@ with Engine(custom_parser=parser) as engine:
     model = segmodel(cfg=config, criterion=criterion, norm_layer=BatchNorm2d, load=True)
 
     # 单独的Segformer分支
-    config.backbone = 'single_mit_b2'
+    config.backbone = 'single_mit_b4'
     print(config.backbone)
     model2 = segmodel2(cfg=config, criterion=criterion2, norm_layer=BatchNorm2d2, load=True)
 
