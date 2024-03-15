@@ -47,6 +47,10 @@ class DecoderHead(nn.Module):
         self.linear_c3 = MLP(input_dim=c3_in_channels, embed_dim=embedding_dim)
         self.linear_c2 = MLP(input_dim=c2_in_channels, embed_dim=embedding_dim)
         self.linear_c1 = MLP(input_dim=c1_in_channels, embed_dim=embedding_dim)
+        self.conv_c4 = nn.Conv2d(c4_in_channels, c4_in_channels, kernel_size=1)
+        self.conv_c3 = nn.Conv2d(c3_in_channels, c3_in_channels, kernel_size=1)
+        self.conv_c2 = nn.Conv2d(c2_in_channels, c2_in_channels, kernel_size=1)
+        self.conv_c1 = nn.Conv2d(c1_in_channels, c1_in_channels, kernel_size=1)
         
         self.linear_fuse = nn.Sequential(
                             nn.Conv2d(in_channels=embedding_dim*4, out_channels=embedding_dim, kernel_size=1),
@@ -58,6 +62,7 @@ class DecoderHead(nn.Module):
        
     def forward(self, inputs):
         # len=4, 1/4,1/8,1/16,1/32
+        outs = []
         c1, c2, c3, c4 = inputs
         
         ############## MLP decoder on C1-C4 ###########
@@ -78,6 +83,20 @@ class DecoderHead(nn.Module):
         x = self.dropout(_c)
         x = self.linear_pred(x)
 
-        return x
+        b4 = self.conv_c4(c4)
+
+        b3 = self.conv_c3(c3)
+
+        b2 = self.conv_c2(c2)
+
+        b1 = self.conv_c1(c1)
+
+        outs.append(b1)
+        outs.append(b2)
+        outs.append(b3)
+        outs.append(b4)
+
+        return x, outs
+        # return x
 
         
